@@ -1,69 +1,59 @@
+[![Chat on Gitter](https://badges.gitter.im/gitterHQ/gitter.png)](https://gitter.im/genotrance/px)
+
 # Px
 
 ## What is Px?
 Px is a HTTP(s) proxy server that allows applications to authenticate through
-an NTLM or Windows Kerberos authenticated proxy server, typically used in
-corporate deployments, without having to deal with the actual handshake. It is
-primarily designed to run on Windows systems and authenticates on behalf of the
-application using the currently logged in Windows user account.
+an NTLM or Kerberos proxy server, typically used in corporate deployments,
+without having to deal with the actual handshake. It is primarily designed to
+run on Windows systems and authenticates on behalf of the application using the
+currently logged in Windows user account.
 
-Px is very similar to "NTLM Authorization Proxy Server" [NTLMAPS](http://ntlmaps.sourceforge.net/)
-and [CNTLM](http://cntlm.sourceforge.net/) in that it sits between the corporate
-proxy and applications and offloads the authentication. The primary difference
-in Px is to use the currently logged in user's credentials to log in
-automatically rather than requiring the user to provide the username, password
-(hash) and domain information. This is accomplished by using Microsoft SSPI to
-generate the tokens and signatures required to authenticate with the proxy. The
-other advantage is that Px supports Kerberos authentication as well, which
-NTLMAPS and CNTLM do not.
+Px is similar to "NTLM Authorization Proxy Server" [NTLMAPS](http://ntlmaps.sourceforge.net/)
+and [Cntlm](http://cntlm.sourceforge.net/) in that it sits between the corporate
+proxy and applications and offloads authentication. The advantage is that Px is
+able to use the currently logged in user's credentials automatically without
+requiring any user supplied credentials. This is accomplished by using Microsoft
+SSPI to generate the tokens and signatures required to authenticate with the proxy.
 
-NTLMAPS and CNTLM were designed for non-Windows users stuck behind a corporate
-proxy. As a result, they require the user to provide the correct credentials to
-authenticate. On Windows, the user has already logged in with his credentials
-so Px is designed for Windows users who would like to use tools that aren't
-designed to deal with proxy authentication, without having to supply and
-maintain the credentials within Px.
+Px also supports Kerberos and works with user supplied credentials for cases
+where SSPI is not available.
 
-The following link from Microsoft provides a good starting point to understand
-how NTLM authentication works:
-
-  https://msdn.microsoft.com/en-us/library/dd925287.aspx
-
-And similarly for Kerberos (warning: long!)
-
-[https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2003/cc772815(v=ws.10)](https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2003/cc772815(v=ws.10))
+Microsoft provides a good starting point to understand how NTLM [authentication](https://msdn.microsoft.com/en-us/library/dd925287.aspx)
+works. And similarly for [Kerberos](https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-server-2003/cc772815(v=ws.10)) (warning: long!)
 
 ## Installation
 
 Px can be obtained in multiple ways:-
 
-Download the latest binary ZIP from the releases page:
-https://github.com/genotrance/px/releases
+- Download the latest binary ZIP from the [releases](https://github.com/genotrance/px/releases)
+  page. Once downloaded, extract to a folder of choice and use the `--save`
+  and `--install` commands as documented below.
 
-Once downloaded, extract to a folder of choice and use the `--save` and `--install`
-commands as documented below.
+- If Python is already available, Px can be easily installed using the Python
+  package manager `pip`. This will download and install Px along with all
+  dependencies.
 
-If Python is already available, Px can be run from source:
+  - Latest: `pip install git+https://github.com/genotrance/px`
 
-- Install with pip - the Python package manager. This will download and install
-  Px along with all dependencies. 
+  - Stable: `pip install px-proxy`
 
-  `pip install px-proxy`
+- Px can also be run from source if Python is available.
 
-- Download a source ZIP of the latest release from above releases link
+  - Download a source ZIP of the latest release from above releases link
 
-- Clone the latest source:
+  - Clone the latest source:
 
-  `git clone https://github.com/genotrance/px`
+    `git clone https://github.com/genotrance/px`
 
-- Download the latest source ZIP:
+  - Download the latest source ZIP:
 
-  `https://github.com/genotrance/px/archive/master.zip`
+    `https://github.com/genotrance/px/archive/master.zip`
 
 Running from source requires a few dependencies installed. Px along with all
-dependencies can be installed to the standard Python location using: 
+dependencies can be installed to the standard Python location using:
 
-`python setup.py install`
+  `python setup.py install`
 
 After installation, Px can be run on the command line like an executable and
 the `--save` and `--install` commands can be used per usual.
@@ -77,18 +67,18 @@ NOTE: Command line parameters passed with `--install` are not saved for use on
 startup. The `--save` flag or manual editing of `px.ini` is required to provide
 configuration to Px on startup.
 
-If installed, Px can be uninstalled using pip:
+If installed, Px can be uninstalled as follows:
 
 ```
 px --uninstall
 pip uninstall px-proxy
 ```
 
-Alternatively, all dependencies can be installed manually using pip and Px can
-be run as a standard Python script.
+Lastly, Px can be run as a standard Python script. Download the source as
+described above. Install all dependencies manually using pip and then run Px:
 
 ```
-pip install netaddr psutil pywin32 winkerberos futures
+pip install keyring netaddr ntlm-auth psutil pywin32 winkerberos futures
 
 python px.py --help
 ```
@@ -105,6 +95,17 @@ directly, bypassing the proxy altogether. This allows clients to connect to
 hosts within the intranet without requiring additional configuration for each
 client or at the proxy. If noproxy is defined, the proxy is optional - this
 allows Px to run as a regular proxy full time if required.
+
+If SSPI is not available or not preferred, providing a `username` in `domain\username`
+format allows Px to authenticate as that user. The corresponding password is
+retrieved using Python keyring and needs to be setup directly in the backend.
+
+On Windows, Credential Manager is the backend and can be accessed as follows:
+
+    Control Panel > User Accounts > Credential Manager > Windows Credentials
+
+Px looks for a generic credential with Px as the network address. More
+information on keyring backends can be found [here](https://pypi.org/project/keyring).
 
 There are a few other settings to tweak in the INI file but most are obvious.
 All settings can be specified on the command line for convenience. The INI file
@@ -187,6 +188,16 @@ Configuration:
   --useragent=  proxy:useragent=
   Override or send User-Agent header on client's behalf
 
+  --username=  proxy:username=
+  Authentication to use when SSPI is unavailable. Format is domain\username
+  Service name "Px" and this username are used to retrieve the password using
+  Python keyring. Px only retrieves credentials and storage should be done
+  directly in the keyring backend.
+    On Windows, Credential Manager is the backed and can be accessed from
+    Control Panel > User Accounts > Credential Manager > Windows Credentials.
+    Create a generic credential with Px as the network address, this username
+    and corresponding password.
+
   --workers=  settings:workers=
   Number of parallel workers (processes). Valid integer, default: 2
 
@@ -197,7 +208,7 @@ Configuration:
   Idle timeout in seconds for HTTP connect sessions. Valid integer, default: 30
 
   --socktimeout=  settings:socktimeout=
-  Timeout in seconds for connections before giving up. Valid float, default: 5
+  Timeout in seconds for connections before giving up. Valid float, default: 20
 
   --proxyreload=  settings:proxyreload=
   Time interval in seconds before reloading proxy info. Valid int, default: 60
@@ -222,44 +233,66 @@ Configuration:
 
 ## Examples
 
-  Use `proxyserver.com:80` and allow requests from localhost only:
+Use `proxyserver.com:80` and allow requests from localhost only:
+
   `px --proxy=proxyserver.com:80`
 
-  Don't use any forward proxy at all, just log what's going on:
+Don't use any forward proxy at all, just log what's going on:
+
   `px --noproxy=0.0.0.0/0 --debug`
 
-  Allow requests from `localhost` and all locally assigned IP addresses. This is very useful for Docker for Windows and VMs in a NAT configuration because all requests originate from the host's IP:
+Allow requests from `localhost` and all locally assigned IP addresses. This
+is very useful for Docker for Windows and VMs in a NAT configuration because
+all requests originate from the host's IP:
+
   `px --proxy=proxyserver.com:80 --hostonly`
 
-  Allow requests from `localhost`, locally assigned IP addresses and the IPs
-  specified in the allow list outside the host:
+Allow requests from `localhost`, locally assigned IP addresses and the IPs
+specified in the allow list outside the host:
+
   `px --proxy=proxyserver:80 --hostonly --gateway --allow=172.*.*.*`
 
-  Allow requests from everywhere. Be careful, every client will use your login:
+Allow requests from everywhere. Be careful, every client will use your login:
+
   `px --proxy=proxyserver.com:80 --gateway`
 
-NOTE:
-  In Docker for Windows you need to set your proxy to `http://<your_ip>:3128` (or actual port Px is listening to) and be aware of https://github.com/docker/for-win/issues/1380.
+NOTE: In Docker for Windows you need to set your proxy to `http://<your_ip>:3128`
+(or actual port Px is listening to) and be aware of https://github.com/docker/for-win/issues/1380.
 
-  Workaround: `docker build --build-arg http_proxy=http://<your ip>:3128 --build-arg https_proxy=http://<your ip>:3128 -t containername ../dir/with/Dockerfile`
+Workaround:
+
+`docker build --build-arg http_proxy=http://<your ip>:3128 --build-arg https_proxy=http://<your ip>:3128 -t containername ../dir/with/Dockerfile`
 
 ## Dependencies
 
-Px doesn't have any GUI and runs completely in the background. It is distributed using Python 3.x and PyInstaller to have a self-contained executable but can also be run using a Python distribution with the following additional packages.
+Px doesn't have any GUI and runs completely in the background. It is distributed
+using Python 3.x and PyInstaller to have a self-contained executable but can
+also be run using a Python distribution with the following additional packages.
 
-  `netaddr`, `psutil`, `winkerberos`
-  
+  `keyring`, `netaddr`, `ntlm-auth`, `psutil`, `pywin32`, `winkerberos`
+
   `futures` on Python 2.x
 
-Px is tested with the latest releases of Python 2.7, 3.4, 3.5 and 3.6 using the Miniconda distribution.
+Px is tested with the latest releases of Python 2.7, 3.4, 3.5 and 3.6 using the
+Miniconda distribution.
 
-In order to make Px a capable proxy server, it is designed to run in multiple processes. The number of parallel workers or processes is configurable. However, this only works on Python 3.3+ since that's when support was added to share sockets across processes in Windows. On older versions of Python, Px will run multi-threaded but in a single process. The number of threads per process is also configurable.
+In order to make Px a capable proxy server, it is designed to run in multiple
+processes. The number of parallel workers or processes is configurable. However,
+this only works on Python 3.3+ since that's when support was added to share
+sockets across processes in Windows. On older versions of Python, Px will run
+multi-threaded but in a single process. The number of threads per process is
+also configurable.
 
 ## Feedback
 
-Px is definitely a work in progress and any feedback or suggestions are welcome. It is hosted on GitHub (https://github.com/genotrance/px) with an MIT license so issues, forks and PRs are most appreciated.
+Px is definitely a work in progress and any feedback or suggestions are welcome.
+It is hosted on [GitHub](https://github.com/genotrance/px) with an MIT license
+so issues, forks and PRs are most appreciated. Also join us on [Gitter](https://gitter.im/genotrance/px)
+to chat about Px.
 
 ## Credits
+
+Thank you to all [contributors](https://github.com/genotrance/px/graphs/contributors) for their PRs and all issue submitters.
 
 Px is based on code from all over the internet and especially acknowledges these sources:
 
@@ -284,11 +317,3 @@ https://stackoverflow.com/questions/42108978/what-is-the-priority-mechanism-in-p
 https://gist.github.com/mgeeky/8960f4fa3f9462ae7bcd6db4ce42a8d3
 
 https://github.com/pypa/sampleproject/
-
-Thank you to the following contributors for their PRs and all issue submitters.
-
-https://github.com/ccbur
-
-https://github.com/McBane87
-
-https://github.com/jpjoux
